@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pair Programming IDE</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Landing Screen (shown initially) -->
+        <div id="landing-screen" class="landing-screen">
+            <div class="landing-content">
+                <h1>🚀 Pair Programming IDE</h1>
+                <p>Real-time collaborative code editor for pair programmers</p>
+                
+                <div class="landing-options">
+                    <div class="option-card">
+                        <div class="option-icon">➕</div>
+                        <h2>Create New Room</h2>
+                        <p>Start a new pair programming session</p>
+                        <button class="btn btn-primary btn-large" onclick="landingCreateRoom()">Create Room</button>
+                    </div>
+                    
+                    <div class="divider">OR</div>
+                    
+                    <div class="option-card">
+                        <div class="option-icon">🔗</div>
+                        <h2>Join Existing Room</h2>
+                        <p>Enter a room ID or paste the link</p>
+                        <input type="text" id="room-input" class="room-input" placeholder="Enter room ID or paste full URL">
+                        <button class="btn btn-primary btn-large" onclick="landingJoinRoom()">Join Room</button>
+                    </div>
+                </div>
+                
+                <div class="landing-footer">
+                    <p>💡 Tip: Share the room link to invite your pair programmer</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header class="header" id="header" style="display: none;">
+            <div class="header-content">
+                <h1>Pair Programming IDE</h1>
+                <div class="room-info">
+                    <span id="room-display" class="room-display">Creating room...</span>
+                    <button id="copy-btn" class="btn btn-small" onclick="copyRoomUrl()">Copy Link</button>
+                    <span id="user-count" class="user-count">0 users</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content" style="display: none;">
+            <!-- Editor Container -->
+            <div class="editor-container">
+                <div class="editor-header">
+                    <div class="editor-tabs">
+                        <div class="tab active" id="tab-code">
+                            <span class="tab-icon">📝</span>
+                            Code
+                        </div>
+                        <div class="tab" id="tab-autocomplete">
+                            <span class="tab-icon">💡</span>
+                            Suggestions
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Editor -->
+                <div class="editor-wrapper">
+                    <textarea 
+                        id="code-editor" 
+                        class="code-editor" 
+                        placeholder="Start typing your code here...
+// or paste code to share with your pair programmer"
+                        spellcheck="false"
+                    ></textarea>
+                    <div class="editor-line-numbers" id="line-numbers"></div>
+                </div>
+
+                <!-- Autocomplete Suggestions Panel -->
+                <div id="autocomplete-panel" class="autocomplete-panel hidden">
+                    <h3>Suggestions</h3>
+                    <div id="suggestions-list" class="suggestions-list"></div>
+                    <div class="autocomplete-controls">
+                        <select id="language-select" onchange="changeLanguage(this.value)">
+                            <option value="python">Python</option>
+                            <option value="javascript">JavaScript</option>
+                        </select>
+                        <button class="btn btn-small" onclick="fetchAutocomplete()">Get Suggestions</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Control Panel -->
+            <aside class="control-panel">
+                <div class="panel-section">
+                    <h3>Room Status</h3>
+                    <div class="status-item">
+                        <span class="status-label">Connected Users:</span>
+                        <span id="connected-count" class="status-value">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Connection:</span>
+                        <span id="connection-status" class="status-value status-disconnected">Disconnected</span>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Quick Actions</h3>
+                    <button class="btn btn-primary" onclick="clearEditor()">Clear Code</button>
+                    <button class="btn btn-primary" onclick="toggleSuggestions()">Toggle Suggestions</button>
+                </div>
+
+                <div class="panel-section">
+                    <h3>Instructions</h3>
+                    <div class="instructions">
+                        <p><strong>Share Room:</strong> Click "Copy Link" to share with your pair programmer</p>
+                        <p><strong>Real-time Sync:</strong> All changes are synced instantly</p>
+                        <p><strong>Autocomplete:</strong> Use the suggestions tab for code completions</p>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>API Endpoints</h3>
+                    <div class="endpoint-list">
+                        <div class="endpoint">
+                            <strong>POST /api/rooms</strong>
+                            <p>Create a new room</p>
+                        </div>
+                        <div class="endpoint">
+                            <strong>GET /api/rooms/{roomId}</strong>
+                            <p>Get room details</p>
+                        </div>
+                        <div class="endpoint">
+                            <strong>POST /api/autocomplete</strong>
+                            <p>Get suggestions</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="footer" id="footer" style="display: none;">
+            <div class="status-bar">
+                <span id="last-sync" class="sync-info">Waiting for connection...</span>
+                <span id="editor-info" class="editor-info">Characters: 0 | Lines: 1</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
