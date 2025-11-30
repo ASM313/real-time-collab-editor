@@ -63,60 +63,17 @@ frontend/
 
 ## 🚀 Getting Started
 
-### 1. Backend Setup
-
-**Clone and navigate to the backend:**
-```bash
-cd backend
-```
-
-**Create a virtual environment:**
-```bash
-python -m venv venv
-
-# On Windows
-venv\Scripts\activate
-
-# On macOS/Linux
-source venv/bin/activate
-```
-
-**Install dependencies:**
-```bash
-pip install -r requirements.txt
-```
-
-**Setup PostgreSQL:**
-
-Option A - Using Docker:
-```bash
-docker run --name postgres-pair-dev -e POSTGRES_PASSWORD=password -e POSTGRES_DB=pair_programming -p 5432:5432 -d postgres:15
-```
-
-Option B - Using local PostgreSQL:
-```bash
-createdb pair_programming
-```
-
 **Configure environment variables:**
 ```bash
 cp .env.example .env
 # Edit .env with your database URL
 ```
 
-**Initialize database:**
+**Using Docker:**
 ```bash
-# Database tables will be created automatically on app startup
+docker compose up --build -d
 ```
 
-**Run the backend:**
-```bash
-# Using uvicorn directly
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Or using Python module
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
 
 Backend will be available at `http://localhost:8000`
 API docs available at `http://localhost:8000/docs`
@@ -255,33 +212,6 @@ CREATE TABLE rooms (
 4. **User B's frontend** receives updated code
 5. **User B's editor** is updated with new code
 
-## 🛡️ Design Decisions
-
-### 1. Last-Write-Wins Strategy
-- **Reason**: Simpler than Operational Transformation (OT) or CRDT
-- **Trade-off**: Potential loss of concurrent edits, but acceptable for pair programming where developers typically work sequentially
-- **Future**: Could be improved with proper conflict resolution
-
-### 2. In-Memory Connection Management
-- **Reason**: Lightweight and fast for real-time updates
-- **Trade-off**: Connections lost on server restart; no distributed deployment support
-- **Future**: Redis PubSub for multi-server deployment
-
-### 3. No Authentication
-- **Reason**: Simplicity and ease of use
-- **Trade-off**: No user identification or audit trail
-- **Future**: Add JWT-based authentication and rate limiting
-
-### 4. PostgreSQL for Persistence
-- **Reason**: Reliable persistence of room state
-- **Trade-off**: Added complexity vs in-memory storage
-- **Future**: Could use Redis for faster performance
-
-### 5. Vanilla JavaScript Frontend
-- **Reason**: No build process, lightweight, easy to understand
-- **Trade-off**: Limited to ES6+ features, no component system
-- **Future**: Could migrate to React/Vue for complex features
-
 ## 🎯 Workflow Example
 
 1. **Create Room**: 
@@ -302,38 +232,6 @@ CREATE TABLE rooms (
    - Take turns typing
    - Use autocomplete for suggestions
    - See active user count
-
-## 📈 Performance Considerations
-
-### Current Bottlenecks
-1. Broadcasting sends full code to all clients (could optimize with delta updates)
-2. No message batching (could batch updates in time windows)
-3. No compression (could compress large code files)
-
-### Optimization Opportunities
-1. Implement delta/diff-based updates
-2. Add message batching and throttling
-3. Compress WebSocket messages
-4. Add caching for frequently accessed rooms
-5. Implement room expiration for cleanup
-
-## 🔐 Security Considerations
-
-### Current Limitations
-- No authentication or authorization
-- No rate limiting
-- No input validation beyond Pydantic schemas
-- No HTTPS/WSS in development
-
-### Production Recommendations
-1. Add JWT authentication
-2. Implement rate limiting (sliding window)
-3. Add CORS whitelist
-4. Use HTTPS/WSS
-5. Sanitize input to prevent code injection
-6. Add API key management
-7. Implement audit logging
-8. Add DDoS protection
 
 ## 🧪 Testing
 
@@ -368,31 +266,6 @@ wscat -c ws://localhost:8000/ws/{room_id}
 {"action": "update", "room_id": "...", "code": "print('hello')", "user_id": "user_1"}
 ```
 
-## 📝 Future Enhancements
-
-### Short Term (MVP+)
-- [ ] Persistent connection retry logic
-- [ ] Message history persistence
-- [ ] User identity with colors/cursors
-- [ ] Syntax highlighting (Highlight.js)
-- [ ] Code execution sandbox integration
-
-### Medium Term
-- [ ] Multi-language support in UI
-- [ ] File upload/download
-- [ ] Collaborative cursor tracking
-- [ ] Code commenting and annotations
-- [ ] Real-time presence indicators
-- [ ] Undo/Redo with history
-
-### Long Term
-- [ ] Operational Transform (OT) or CRDT for conflict resolution
-- [ ] Database replication for high availability
-- [ ] Redis for distributed deployments
-- [ ] Mobile native apps
-- [ ] Video/Audio chat integration
-- [ ] AI-powered code suggestions
-- [ ] Version control integration
 
 ## 🐛 Known Limitations
 
@@ -402,101 +275,3 @@ wscat -c ws://localhost:8000/ws/{room_id}
 4. **Single Server**: No load balancing or failover
 5. **Memory Usage**: All active connections stored in memory
 6. **No Room Cleanup**: Empty rooms persist indefinitely
-
-## 🚨 Troubleshooting
-
-### WebSocket Connection Fails
-1. Check backend is running: `http://localhost:8000/health`
-2. Check CORS is enabled (should be by default)
-3. Check firewall allows port 8000
-4. Browser console for detailed error messages
-
-### Database Connection Error
-1. Verify PostgreSQL is running
-2. Check database URL in `.env`
-3. Verify credentials
-4. Run: `psql -U user -d pair_programming -c "SELECT 1"`
-
-### Code Not Syncing
-1. Check WebSocket is connected (green indicator)
-2. Check browser console for errors
-3. Refresh page to reconnect
-4. Check backend logs for issues
-
-### Autocomplete Not Working
-1. Check backend `/api/autocomplete` endpoint responds
-2. Verify prefix is being sent
-3. Check selected language is correct
-
-## 📄 Project Structure
-
-```
-pair-programming-app/
-├── backend/
-│   ├── app/
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── room.py
-│   │   ├── schemas/
-│   │   │   ├── __init__.py
-│   │   │   └── room.py
-│   │   ├── services/
-│   │   │   ├── __init__.py
-│   │   │   ├── room_service.py
-│   │   │   └── autocomplete_service.py
-│   │   ├── routers/
-│   │   │   ├── __init__.py
-│   │   │   ├── rooms.py
-│   │   │   └── autocomplete.py
-│   │   ├── websockets/
-│   │   │   ├── __init__.py
-│   │   │   └── connection_manager.py
-│   │   ├── db/
-│   │   │   ├── __init__.py
-│   │   │   ├── base.py
-│   │   │   └── database.py
-│   │   ├── __init__.py
-│   │   ├── config.py
-│   │   └── main.py
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── .gitignore
-├── frontend/
-│   ├── index.html
-│   ├── styles.css
-│   └── app.js
-└── README.md
-```
-
-## 🤝 Contributing
-
-Contributions welcome! Areas for improvement:
-- Better error handling and user feedback
-- Enhanced autocomplete with more languages
-- Performance optimizations
-- Unit and integration tests
-- Docker support
-- CI/CD pipeline
-
-## 📄 License
-
-MIT License - feel free to use this project for learning and development.
-
-## 🙏 Acknowledgments
-
-- FastAPI documentation and community
-- WebSocket protocol specification
-- PostgreSQL documentation
-- CSS design inspiration from modern web applications
-
-## 📞 Support
-
-For issues, questions, or suggestions:
-1. Check this README first
-2. Review GitHub Issues (if applicable)
-3. Check browser console for errors
-4. Check backend logs with `--log-level debug`
-
----
-
-**Happy Coding! 👨‍💻👩‍💻**
