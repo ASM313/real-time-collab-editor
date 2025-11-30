@@ -78,6 +78,8 @@
                         spellcheck="false"
                     ></textarea>
                     <div class="editor-line-numbers" id="line-numbers"></div>
+                    <!-- Remote Cursors Container -->
+                    <div id="remote-cursors-container" class="remote-cursors-container"></div>
                 </div>
 
                 <!-- Autocomplete Suggestions Panel -->
@@ -109,7 +111,13 @@
                 </div>
 
                 <div class="panel-section">
-                    <h3>Quick Actions</h3>
+                    <h3>Active Users</h3>
+                    <div id="users-list" class="users-list">
+                        <p class="no-users">No other users connected</p>
+                    </div>
+                </div>
+
+                <div class="panel-section">
                     <button class="btn btn-primary" onclick="clearEditor()">Clear Code</button>
                     <button class="btn btn-primary" onclick="toggleSuggestions()">Toggle Suggestions</button>
                 </div>

@@ -54,8 +54,8 @@ async def websocket_endpoint(room_id: str, websocket: WebSocket, db: Session = D
         websocket: The WebSocket connection
         db: Database session
     """
-    # Connect the user
-    await manager.connect(room_id, websocket)
+    # Connect the user and get assigned user_id and color
+    user_id, color = await manager.connect(room_id, websocket)
     
     try:
         # Verify room exists
@@ -67,23 +67,29 @@ async def websocket_endpoint(room_id: str, websocket: WebSocket, db: Session = D
                 "type": "error",
                 "message": "Room not found"
             })
-            await manager.disconnect(room_id, websocket)
+            await manager.disconnect(room_id, user_id)
             return
         
         # Increment active users
         room_service.increment_active_users(room_id)
         
-        # Send initial code state to the new user
+        # Send initial code state to the new user with user info
         await websocket.send_json({
             "type": "sync",
             "code": room.code,
-            "active_users": manager.get_active_users_count(room_id)
+            "active_users": manager.get_active_users_count(room_id),
+            "user_id": user_id,
+            "color": color,
+            "users": manager.get_all_users(room_id)
         })
         
-        # Notify others that a user joined
+        # Notify others that a user joined with their color
         await manager.broadcast(room_id, {
             "type": "user_joined",
-            "active_users": manager.get_active_users_count(room_id)
+            "active_users": manager.get_active_users_count(room_id),
+            "user_id": user_id,
+            "color": color,
+            "users": manager.get_all_users(room_id)
         })
         
         logger.info(f"User joined room {room_id}")
@@ -104,22 +110,25 @@ async def websocket_endpoint(room_id: str, websocket: WebSocket, db: Session = D
                 await manager.broadcast(room_id, {
                     "type": "code_update",
                     "code": new_code,
-                    "user_id": message.get("user_id")
+                    "user_id": user_id,
+                    "color": color
                 })
             
             elif action == "cursor_position":
-                # Broadcast cursor position (for future enhancement)
+                # Broadcast cursor position with user color
                 await manager.broadcast(room_id, {
                     "type": "cursor_update",
-                    "user_id": message.get("user_id"),
-                    "position": message.get("position")
+                    "user_id": user_id,
+                    "color": color,
+                    "position": message.get("position"),
+                    "line": message.get("line")
                 })
             
             else:
                 logger.warning(f"Unknown action: {action}")
     
     except WebSocketDisconnect:
-        await manager.disconnect(room_id, websocket)
+        await manager.disconnect(room_id, user_id)
         
         # Decrement active users
         room_service = RoomService(db)
@@ -130,7 +139,9 @@ async def websocket_endpoint(room_id: str, websocket: WebSocket, db: Session = D
         if active_count > 0:
             await manager.broadcast(room_id, {
                 "type": "user_left",
-                "active_users": active_count
+                "active_users": active_count,
+                "user_id": user_id,
+                "users": manager.get_all_users(room_id)
             })
         else:
             logger.info(f"Room {room_id} is now empty")

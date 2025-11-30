@@ -7,6 +7,10 @@ let roomId = null;
 let ws = null;
 let currentLanguage = 'python';
 let isConnected = false;
+let currentUserId = null;
+let currentUserColor = null;
+let remoteUsers = {};  // Track remote users and their cursors
+let remoteCursors = {};  // Track cursor elements by user_id
 
 // Initialize app on load
 document.addEventListener('DOMContentLoaded', () => {
@@ -238,41 +242,69 @@ function connectWebSocket() {
  * Handle WebSocket messages
  */
 function handleWebSocketMessage(message) {
-    const { type, code, user_id, active_users } = message;
+    const { type, code, user_id, color, active_users, users } = message;
 
     switch (type) {
         case 'sync':
             // Initial sync when joining
+            currentUserId = user_id;
+            currentUserColor = color;
             document.getElementById('code-editor').value = code;
             updateLineNumbers();
             updateUserCount(active_users);
-            console.log('Code synced from server');
+            if (users) {
+                updateUsersList(users);
+                remoteUsers = {};
+                users.forEach(user => {
+                    if (user.user_id !== currentUserId) {
+                        remoteUsers[user.user_id] = user;
+                    }
+                });
+            }
+            console.log(`You joined as ${user_id} with color ${color}`);
             break;
 
         case 'code_update':
             // Another user updated code
-            if (user_id !== getCurrentUserId()) {
+            if (user_id !== currentUserId) {
                 document.getElementById('code-editor').value = code;
                 updateLineNumbers();
-                updateSyncStatus('Code updated by peer');
+                updateSyncStatus(`Code updated by peer (${user_id})`);
             }
             break;
 
         case 'user_joined':
             updateUserCount(active_users);
-            updateSyncStatus(`User joined (${active_users} active)`);
+            if (users) {
+                updateUsersList(users);
+                users.forEach(user => {
+                    if (user.user_id !== currentUserId && !remoteUsers[user.user_id]) {
+                        remoteUsers[user.user_id] = user;
+                    }
+                });
+            }
+            updateSyncStatus(`User ${user_id} joined (${active_users} active)`);
             console.log(`User joined. Active users: ${active_users}`);
             break;
 
         case 'user_left':
             updateUserCount(active_users);
+            if (user_id in remoteUsers) {
+                delete remoteUsers[user_id];
+                removeRemoteCursor(user_id);
+            }
+            if (users) {
+                updateUsersList(users);
+            }
             updateSyncStatus(`User left (${active_users} active)`);
             console.log(`User left. Active users: ${active_users}`);
             break;
 
         case 'cursor_update':
-            // Handle cursor position update (for future enhancement)
-            console.log(`Cursor update from ${user_id}:`, message.position);
+            // Handle cursor position update
+            if (user_id !== currentUserId) {
+                updateRemoteCursor(user_id, color, message.position, message.line);
+            }
             break;
 
         case 'error':
@@ -282,6 +314,110 @@ function handleWebSocketMessage(message) {
         default:
             console.warn('Unknown message type:', type);
     }
+}
+
+/**
+ * Update remote cursor position
+ */
+function updateRemoteCursor(userId, color, position, line) {
+    const container = document.getElementById('remote-cursors-container');
+    
+    // Create or update cursor element
+    let cursorElement = document.getElementById(`cursor-${userId}`);
+    if (!cursorElement) {
+        cursorElement = document.createElement('div');
+        cursorElement.id = `cursor-${userId}`;
+        cursorElement.className = 'remote-cursor';
+        cursorElement.style.backgroundColor = color;
+        
+        const label = document.createElement('div');
+        label.className = 'cursor-label';
+        label.style.backgroundColor = color;
+        label.textContent = userId;
+        cursorElement.appendChild(label);
+        
+        container.appendChild(cursorElement);
+        remoteCursors[userId] = cursorElement;
+    }
+    
+    // Calculate cursor position based on text content
+    const editor = document.getElementById('code-editor');
+    const text = editor.value;
+    
+    // Get line and column from position
+    let currentLine = 1;
+    let currentCol = 0;
+    for (let i = 0; i < Math.min(position, text.length); i++) {
+        if (text[i] === '\n') {
+            currentLine++;
+            currentCol = 0;
+        } else {
+            currentCol++;
+        }
+    }
+    
+    // Calculate pixel position (approximate)
+    const lineHeight = 20;  // Approximate line height
+    const charWidth = 8;    // Approximate character width
+    
+    cursorElement.style.left = (currentCol * charWidth) + 'px';
+    cursorElement.style.top = ((currentLine - 1) * lineHeight + editor.offsetTop) + 'px';
+}
+
+/**
+ * Remove remote cursor
+ */
+function removeRemoteCursor(userId) {
+    const cursorElement = document.getElementById(`cursor-${userId}`);
+    if (cursorElement) {
+        cursorElement.remove();
+        delete remoteCursors[userId];
+    }
+}
+
+/**
+ * Update users list display
+ */
+function updateUsersList(users) {
+    const usersList = document.getElementById('users-list');
+    
+    // Filter out current user
+    const otherUsers = users.filter(u => u.user_id !== currentUserId);
+    
+    if (otherUsers.length === 0) {
+        usersList.innerHTML = '<p class="no-users">No other users connected</p>';
+        return;
+    }
+    
+    usersList.innerHTML = otherUsers.map(user => `
+        <div class="user-item" style="border-left-color: ${user.color}">
+            <div class="user-color" style="background-color: ${user.color}"></div>
+            <div class="user-name">${user.user_id}</div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Broadcast cursor position
+ */
+function broadcastCursorPosition() {
+    if (!ws || !isConnected) {
+        return;
+    }
+    
+    const codeEditor = document.getElementById('code-editor');
+    const position = codeEditor.selectionStart;
+    
+    // Calculate line number
+    const text = codeEditor.value.substring(0, position);
+    const line = text.split('\n').length;
+    
+    ws.send(JSON.stringify({
+        action: 'cursor_position',
+        user_id: currentUserId,
+        position: position,
+        line: line
+    }));
 }
 
 /**
@@ -295,6 +431,16 @@ function setupEventListeners() {
         updateLineNumbers();
         updateEditorInfo();
         broadcastCodeUpdate();
+        broadcastCursorPosition();
+    });
+
+    // Handle cursor movement
+    codeEditor.addEventListener('click', () => {
+        broadcastCursorPosition();
+    });
+
+    codeEditor.addEventListener('keyup', () => {
+        broadcastCursorPosition();
     });
 
     // Handle tab insertion
@@ -307,6 +453,7 @@ function setupEventListeners() {
             codeEditor.selectionStart = codeEditor.selectionEnd = start + 1;
             updateLineNumbers();
             broadcastCodeUpdate();
+            broadcastCursorPosition();
         }
     });
 
